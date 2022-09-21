@@ -3,7 +3,20 @@ import pickle
 import requests
 import csv
 
-from settings import url_edit, url_auth
+from settings import url_auth, url_edit
+
+
+def send_ratings_single(ratings, username, password):
+    payload = {'si_username': username,
+               'si_password': password}
+    files = []
+    ratings['fl_submit_batch'] = None
+    s = requests.Session()
+    response = s.request("POST", url_auth, data=payload, files=files, allow_redirects=False)
+    for key in ratings:
+        url = f"https://www.criticker.com/ajax/submitRating.php?f={key}&s={ratings[key]}&m=fi_container&ext=https%3A%2F%2Fwww.criticker.com%2Fforum%2F"
+
+        response2 = s.request("GET", url)
 
 
 def main():
@@ -13,11 +26,11 @@ def main():
     username = input("Username: ")
     password = input("Password: ")
 
-    with open('films.pkl', 'rb') as f:
+    with open('all_films.pkl', 'rb') as f:
         films = pickle.load(f)
 
     ratings = {}
-
+    names = []
     with open(args.ratings_csv, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')
 
@@ -26,24 +39,22 @@ def main():
         for row in reader:
             imdb_id = row[-1]
             score = row[0]
+
             if imdb_id in films:
                 crit_id = films[imdb_id]
-                ratings[f'fi_batchedit_input_{crit_id}'] = score
-        else:
-            print(f"Film {row[1]} not in database")
-
-    send_ratings(ratings, username, password)
-
+                ratings[crit_id] = int(score)
+            else:
+                print(f"Film {imdb_id} not in database")
+    send_ratings_single(ratings, username, password)
 
 def send_ratings(ratings, username, password):
     payload = {'si_username': username,
                'si_password': password}
     files = []
+    ratings['fl_submit_batch'] = None
     s = requests.Session()
     response = s.request("POST", url_auth, data=payload, files=files, allow_redirects=False)
     response2 = s.request("POST", url_edit, data=ratings, files=files, allow_redirects=False)
-
-    print(response.text)
 
 
 if __name__ == '__main__':
